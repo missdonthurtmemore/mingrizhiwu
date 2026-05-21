@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>原生家庭疗愈助手</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 设置页面 -->
+  <div id="setup-screen" class="screen">
+    <div class="setup-card">
+      <div class="logo">🌱</div>
+      <h1>原生家庭疗愈助手</h1>
+      <p class="subtitle">一个温柔倾听、慢慢陪伴的对话伙伴</p>
+
+      <div class="setup-form">
+        <label for="api-key">
+          第一步：输入你的 DeepSeek API 密钥
+          <small>免费领取：<a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a> → API Keys → 创建 API Key</small>
+        </label>
+        <input type="password" id="api-key" placeholder="输入你的 API 密钥" />
+
+        <label for="user-name">
+          第二步：你希望孩子怎么称呼你？（可选）
+          <small>助手在对话中会提到你的故事来源</small>
+        </label>
+        <input type="text" id="user-name" placeholder="你的称呼" />
+
+        <button id="start-btn" onclick="startChat()">开始对话</button>
+        <p id="setup-error" class="error hidden"></p>
+      </div>
+
+      <div class="setup-info">
+        <p>💡 API 密钥只保存在你的浏览器本地，不会上传到任何服务器。<br>🔒 建议注册 DeepSeek 时使用手机号，安全便捷。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 对话页面 -->
+  <div id="chat-screen" class="screen hidden">
+    <div id="header">
+      <div class="header-left">
+        <span class="logo-small">🌱</span>
+        <span class="header-title">原生家庭疗愈助手</span>
+      </div>
+      <div class="header-right">
+        <button id="settings-btn" onclick="showSettings()" title="设置">⚙️</button>
+        <button id="summary-btn" onclick="generateSummary()" title="总结对话">📝</button>
+      </div>
+    </div>
+
+    <div id="chat-container">
+      <div id="messages">
+        <div class="message assistant">
+          <div class="avatar">🤗</div>
+          <div class="bubble">
+            你好，我是这里陪你聊天的助手。<br>
+            不管你此刻遇到了什么，都可以和我说。<br>
+            我会先好好听，不着急给建议。<br><br>
+            你想从哪里开始？
+          </div>
+        </div>
+      </div>
+      <div id="loading" class="hidden">
+        <div class="dot-pulse"></div>
+        <span>思考中……</span>
+      </div>
+    </div>
+
+    <div id="input-area">
+      <textarea id="user-input" rows="1" placeholder="说说你的感受……" onkeydown="handleKeyDown(event)"></textarea>
+      <button id="send-btn" onclick="sendMessage()">发送</button>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close" onclick="closeSettings()">&times;</span>
+      <h2>设置</h2>
+      <label>
+        API 密钥
+        <input type="password" id="edit-api-key" />
+      </label>
+      <label>
+        你的称呼
+        <input type="text" id="edit-user-name" />
+      </label>
+      <button onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+
+  <!-- 对话总结弹窗 -->
+  <div id="summary-modal" class="modal hidden">
+    <div class="modal-content summary-content">
+      <span class="close" onclick="closeSummary()">&times;</span>
+      <h2>📝 对话精华总结</h2>
+      <div id="summary-text">
+        <p>点击按钮生成这段对话的总结，有价值的点可以存入知识库。</p>
+      </div>
+      <div id="summary-loading" class="hidden">正在总结……</div>
+      <button id="copy-summary-btn" onclick="copySummary()" class="hidden">复制总结</button>
+    </div>
+  </div>
+
+  <script src="knowledge.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
