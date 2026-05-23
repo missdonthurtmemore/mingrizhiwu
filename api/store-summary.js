@@ -17,10 +17,8 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: '缺少 summary' });
     }
 
-    const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-    if (!GITHUB_TOKEN) {
-      return res.status(500).json({ error: '服务器未配置 GitHub Token' });
-    }
+    // 在 Vercel 环境变量中设置为 git_token，或用小写字母
+    const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.git_token || process.env.github_token;
 
     const REPO = 'missdonthurtmemore/mingrizhiwu';
     const BRANCH = 'master';
