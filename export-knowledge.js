@@ -44,6 +44,13 @@ const SECTIONS = [
     title: '创伤与疗愈',
     dir: '3. Resources/创伤与疗愈',
     description: '理解创伤反应、创伤后成长'
+  },
+  {
+    id: 'auto-summaries',
+    title: '对话自动总结',
+    dir: '3. Resources/原生家庭认知/自动总结',
+    description: 'AI 助手在对话过程中自动生成的总结',
+    excludeEmpty: true
   }
 ];
 
@@ -172,6 +179,11 @@ function exportKnowledge() {
       } catch (err) {
         console.log(`  ✗ ${file}: ${err.message}`);
       }
+    }
+
+    // 如果是可选的空板块（如自动总结目录），没有笔记时跳过
+    if (section.excludeEmpty && notes.length === 0) {
+      continue;
     }
 
     knowledge.sections.push({

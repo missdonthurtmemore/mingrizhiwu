@@ -11,6 +11,7 @@ let conversationHistory = [];    // 当前对话历史
 
 async function initApp() {
   await loadKnowledge();
+  checkSyncServer(); // 检测本地同步服务
   document.getElementById('setup-screen').classList.add('hidden');
   document.getElementById('chat-screen').classList.remove('hidden');
 }
@@ -283,6 +284,14 @@ async function checkAutoSummary() {
   if (milestone > 0) {
     lastAutoSummaryCount = milestone;
     await autoGenerateSummary(milestone);
+    // 同步到本地 Obsidian 知识库
+    if (syncConnected) {
+      const summaries = getAutoSummaries();
+      const latest = summaries[0];
+      if (latest && latest.milestone === milestone) {
+        await syncToLocal(milestone, latest.summary);
+      }
+    }
   }
 }
 
@@ -337,6 +346,64 @@ async function autoGenerateSummary(milestone) {
     console.log(`✅ 自动总结已保存（第 ${milestone} 轮）`);
   } catch (err) {
     console.error('自动总结失败:', err.message);
+  }
+}
+
+// =======================================
+// 本地同步（自动写入 Obsidian 知识库）
+// =======================================
+
+const SYNC_SERVER = 'http://localhost:18888';
+let syncConnected = false;
+
+async function checkSyncServer() {
+  try {
+    const resp = await fetch(`${SYNC_SERVER}/api/health`, { signal: AbortSignal.timeout(2000) });
+    if (resp.ok) {
+      syncConnected = true;
+      const el = document.getElementById('sync-status');
+      if (el) { el.textContent = '🟢 已同步'; el.classList.add('connected'); }
+      console.log('🔄 本地同步服务已连接');
+    }
+  } catch {
+    syncConnected = false;
+    const el = document.getElementById('sync-status');
+    if (el) { el.textContent = '⚪ 离线'; el.classList.remove('connected'); }
+  }
+}
+
+async function syncToLocal(milestone, summary) {
+  if (!syncConnected) return;
+
+  try {
+    const conversationPreview = conversationHistory
+      .filter(m => m.role === 'user')
+      .slice(0, 3)
+      .map(m => m.text.substring(0, 50))
+      .join(' | ');
+
+    const resp = await fetch(`${SYNC_SERVER}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        action: 'import-summary',
+        date: new Date().toLocaleString('zh-CN'),
+        milestone: milestone,
+        summary: summary,
+        conversationPreview: conversationPreview
+      })
+    });
+
+    if (resp.ok) {
+      const result = await resp.json();
+      console.log(`✅ 已同步到本地知识库: ${result.note}`);
+    }
+  } catch (err) {
+    console.log('⚠️  本地同步失败（服务可能已停止）:', err.message);
+    syncConnected = false;
+    const el = document.getElementById('sync-status');
+    if (el) { el.textContent = '⚪ 离线'; el.classList.remove('connected'); }
   }
 }
 
