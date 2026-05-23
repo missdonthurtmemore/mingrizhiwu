@@ -1,45 +1,35 @@
 # 🌱 原生家庭疗愈助手
 
-一个温柔倾听、懂得陪伴的 AI 对话助手，基于 DeepSeek API。
+一个温柔倾听、懂得陪伴的 AI 对话助手。
+用户打开网页直接聊天，无需任何设置。
 
-## 如何部署
+## 部署到 Vercel
 
-### 1. 获取 DeepSeek API 密钥
+1. **Fork 或上传** 这个仓库到你的 GitHub
 
-1. 访问 [platform.deepseek.com](https://platform.deepseek.com)，手机号注册
-2. 点击左侧「API Keys」→「创建 API Key」
-3. 复制生成的密钥（新用户自动送 500 万 token，够用很久）
+2. **在 Vercel 中设置环境变量**
+   - 访问 [vercel.com](https://vercel.com)，用 GitHub 登录
+   - 点「Add New」→「Project」→ 导入此仓库
+   - 在 **Environment Variables** 中添加：
+     - 名称：`DEEPSEEK_API_KEY`
+     - 值：你的 DeepSeek API 密钥
+   - 点「Deploy」
 
-### 2. 部署到 Vercel（免费）
-
-1. 将 `ai-helper/` 文件夹上传到你的 GitHub 仓库
-2. 访问 [vercel.com](https://vercel.com)，用 GitHub 账号登录
-3. 点击「Add New」→「Project」
-4. 选择你上传的仓库
-5. 「Framework Preset」选择「Other」
-6. 点击「Deploy」
-7. 部署完成后，访问生成的 URL 即可使用
-
-### 3. 在网站中输入 API 密钥
-
-首次打开网站时，输入你的 DeepSeek API 密钥即可开始对话。
-
-> API 密钥只存储在浏览器的本地存储中，不会上传到任何服务器。
+3. **部署完成后**，访问生成的网址即可使用
 
 ## 更新知识库
 
-当你更新了 Obsidian 知识库的笔记后：
+在 Obsidian 中更新笔记后：
 
 ```bash
 cd ai-helper
 node export-knowledge.js
 ```
 
-然后重新提交并部署到 Vercel 即可。
+提交 `knowledge.json` 到 GitHub，Vercel 会自动重新部署。
 
 ## 技术栈
 
-- 纯前端：HTML + CSS + JavaScript
-- AI：DeepSeek API（deepseek-chat 模型）
+- 前端：HTML + CSS + JavaScript
+- AI：DeepSeek API（通过 Vercel Serverless Function 代理）
 - 托管：Vercel（免费）
-- 知识库：从 Obsidian 导出的 JSON 文件

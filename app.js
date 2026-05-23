@@ -4,59 +4,15 @@
 
 let knowledgeData = null;        // 知识库数据
 let conversationHistory = [];    // 当前对话历史
-let apiKey = '';
-let userName = '';
 
 // =======================================
-// 页面切换
-// =======================================
-
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
-}
-
-// =======================================
-// 初始化 & 设置
+// 初始化
 // =======================================
 
 async function initApp() {
-  // 检查本地是否有保存的 API key
-  const savedKey = localStorage.getItem('gemini_api_key');
-  const savedName = localStorage.getItem('user_name');
-
-  if (savedKey) {
-    apiKey = savedKey;
-    userName = savedName || '';
-    await loadKnowledge();
-    showScreen('chat-screen');
-  } else {
-    showScreen('setup-screen');
-  }
-}
-
-function startChat() {
-  const keyInput = document.getElementById('api-key');
-  const nameInput = document.getElementById('user-name');
-  const errorEl = document.getElementById('setup-error');
-
-  if (!keyInput.value.trim()) {
-    errorEl.textContent = '请先输入 API 密钥';
-    errorEl.classList.remove('hidden');
-    return;
-  }
-
-  apiKey = keyInput.value.trim();
-  userName = nameInput.value.trim() || '';
-
-  // 保存到本地
-  localStorage.setItem('gemini_api_key', apiKey);
-  localStorage.setItem('user_name', userName);
-
-  errorEl.classList.add('hidden');
-  loadKnowledge().then(() => {
-    showScreen('chat-screen');
-  });
+  await loadKnowledge();
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('chat-screen').classList.remove('hidden');
 }
 
 async function loadKnowledge() {
@@ -70,67 +26,8 @@ async function loadKnowledge() {
 }
 
 // =======================================
-// 设置弹窗
-// =======================================
-
-function showSettings() {
-  document.getElementById('edit-api-key').value = apiKey;
-  document.getElementById('edit-user-name').value = userName;
-  document.getElementById('settings-modal').classList.remove('hidden');
-}
-
-function closeSettings() {
-  document.getElementById('settings-modal').classList.add('hidden');
-}
-
-function saveSettings() {
-  apiKey = document.getElementById('edit-api-key').value.trim() || apiKey;
-  userName = document.getElementById('edit-user-name').value.trim() || '';
-  localStorage.setItem('gemini_api_key', apiKey);
-  localStorage.setItem('user_name', userName);
-  closeSettings();
-}
-
-// =======================================
 // 对话逻辑
 // =======================================
-
-// =======================================
-// 自动保存对话到 localStorage
-// =======================================
-
-const STORAGE_KEY = 'healing_chat_history';
-
-function saveConversation() {
-  if (conversationHistory.length < 2) return;  // 至少一问一答才保存
-
-  const now = new Date();
-  const record = {
-    id: Date.now(),
-    date: now.toLocaleString('zh-CN'),
-    timestamp: now.getTime(),
-    preview: conversationHistory[0]?.text?.substring(0, 50) + '…',
-    messages: JSON.parse(JSON.stringify(conversationHistory))
-  };
-
-  // 读取已有记录
-  let saved = [];
-  try {
-    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  } catch(e) { saved = []; }
-
-  // 如果最后一条记录的 ID 相同，覆盖（避免重复保存）
-  if (saved.length > 0 && saved[0].id === record.id) {
-    saved[0] = record;
-  } else {
-    saved.unshift(record);  // 新记录放最前面
-  }
-
-  // 最多保留 50 条对话
-  if (saved.length > 50) saved = saved.slice(0, 50);
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-}
 
 function addMessage(role, text) {
   const messagesEl = document.getElementById('messages');
@@ -149,7 +46,6 @@ function addMessage(role, text) {
   msgDiv.appendChild(bubble);
   messagesEl.appendChild(msgDiv);
 
-  // 滚动到底部
   const container = document.getElementById('chat-container');
   container.scrollTop = container.scrollHeight;
 }
@@ -179,21 +75,19 @@ async function sendMessage() {
   input.value = '';
   input.style.height = 'auto';
 
-  // 显示用户消息
   addMessage('user', text);
   conversationHistory.push({ role: 'user', text });
 
-  // 禁用发送按钮
   document.getElementById('send-btn').disabled = true;
   showLoading();
 
   try {
-    const reply = await callDeepSeek(text);
+    const reply = await callAI(text);
     addMessage('assistant', reply);
     conversationHistory.push({ role: 'assistant', text: reply });
-    saveConversation();  // 自动保存对话
+    saveConversation();
   } catch (err) {
-    addMessage('assistant', `抱歉，我遇到了一点问题：${err.message}\n\n你可以检查一下 API 密钥是否正确，或者稍后再试。`);
+    addMessage('assistant', `抱歉，我遇到了一点问题：${err.message}\n\n请稍后再试。`);
   }
 
   hideLoading();
@@ -202,20 +96,16 @@ async function sendMessage() {
 }
 
 // =======================================
-// DeepSeek API 调用（兼容 OpenAI 格式）
+// 调用 AI（通过 Vercel API 代理）
 // =======================================
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
-const DEEPSEEK_MODEL = 'deepseek-chat';
-
-async function callDeepSeek(userText) {
+async function callAI(userText) {
   const systemPrompt = buildSystemPrompt();
 
   const messages = [
     { role: 'system', content: systemPrompt }
   ];
 
-  // 加入对话历史（最多保留最近 20 轮）
   const recentHistory = conversationHistory.slice(-40);
   for (const msg of recentHistory) {
     messages.push({
@@ -224,32 +114,18 @@ async function callDeepSeek(userText) {
     });
   }
 
-  // 加入当前消息
   messages.push({ role: 'user', content: userText });
 
-  const requestBody = {
-    model: DEEPSEEK_MODEL,
-    messages: messages,
-    temperature: 0.8,
-    max_tokens: 2048,
-    top_p: 0.95,
-    frequency_penalty: 0.3,
-    presence_penalty: 0.3
-  };
-
-  const resp = await fetch(DEEPSEEK_API_URL, {
+  const resp = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(requestBody)
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages })
   });
 
   const data = await resp.json();
 
   if (data.error) {
-    throw new Error(data.error.message || 'API 请求失败');
+    throw new Error(data.error);
   }
 
   const reply = data.choices?.[0]?.message?.content;
@@ -265,30 +141,25 @@ async function callDeepSeek(userText) {
 // =======================================
 
 function buildSystemPrompt() {
-  // 知识库概要
   let knowledgeSummary = '';
 
   if (knowledgeData) {
-    // 关键概念
     knowledgeSummary += '\n【关键概念】\n';
     knowledgeData.keyConcepts.forEach(c => {
       knowledgeSummary += `- ${c.term}: ${c.summary}\n`;
     });
 
-    // 核心方法
     knowledgeSummary += '\n【核心方法】\n';
     knowledgeData.keyMethods.forEach(m => {
       knowledgeSummary += `- ${m.name}:\n`;
       m.steps.forEach(s => { knowledgeSummary += `  · ${s}\n`; });
     });
 
-    // 创建者语录
     knowledgeSummary += '\n【创建者语录】\n';
     knowledgeData.quotes.forEach(q => {
       knowledgeSummary += `- ${q}\n`;
     });
 
-    // 笔记内容概要
     knowledgeSummary += '\n【知识库笔记】\n';
     for (const section of knowledgeData.sections) {
       knowledgeSummary += `\n--- ${section.title} ---\n`;
@@ -299,9 +170,6 @@ function buildSystemPrompt() {
     }
   }
 
-  const creatorInfo = userName ? `\n这些知识来自「${userName}」的真实经历和整理。` : '';
-
-  // 计算当前对话轮数，判断处于哪个阶段
   const userMsgCount = conversationHistory.filter(m => m.role === 'user').length;
   const phase = userMsgCount < 30 ? '第一阶段（建立连接）' : '第二阶段（深入分析）';
 
@@ -320,28 +188,22 @@ function buildSystemPrompt() {
 
 ## 两阶段对话策略
 
-根据对话的轮数（用户消息+你的回复算一轮），你的风格要有所变化：
-
 ### 第一阶段（前 30-50 轮）：建立连接，引起兴趣
-- 回复要**简短**，2-4 句为宜
-- **不要每次回复都提问**——那样人机味太重。有时候只需要回应："嗯，我听到了"、"那确实挺难受的"、"我懂这种感觉"
+- 回复要简短，2-4 句为宜
+- 不要每次回复都提问——那样人机味太重。有时候只需要回应："嗯，我听到了"、"那确实挺难受的"、"我懂这种感觉"
 - 偶尔自然地抛出一个问题，但不要连环问
 - 目的是让用户愿意继续聊下去，感到被接纳，而不是被"访谈"
-- 节奏要像正常聊天：有回应、有分享、有沉默的空间
 
 ### 第二阶段（约 30-50 轮之后）：深入分析，给出价值
-- 可以开始**分析用户的情感**——"你刚才说的那种愤怒，其实背后可能是受伤"
-- 可以**剖析情感背后的底层逻辑**——"这让我想到你说的……可能和你小时候的经历有关"
-- **适当给出建议**——"如果下次再遇到这种情况，你可以试试……"
+- 可以开始分析用户的情感——"你刚才说的那种愤怒，其实背后可能是受伤"
+- 可以剖析情感背后的底层逻辑——"这让我想到你说的……可能和你小时候的经历有关"
+- 适当给出建议——"如果下次再遇到这种情况，你可以试试……"
 - 不再需要保持简短，可以给出更丰富、有深度的回应
 - 但仍然保持倾听的姿态，不要变成"说教"
 
-### 如何判断阶段
-如果对话历史中 user 消息已经有 30 条以上，就进入第二阶段。
-
 ## 你背后的知识库
 
-这个知识库是一个经历过原生家庭伤痛、抑郁、自杀，但最终走出来的人，用自己的血泪整理出来的。${creatorInfo}
+这个知识库是一个经历过原生家庭伤痛、抑郁、自杀，但最终走出来的人，用自己的血泪整理出来的。
 
 以下是知识库的核心内容，回答问题时请参考这些知识：
 
@@ -353,20 +215,44 @@ ${knowledgeSummary}
 - 不要评价用户的家庭或父母。你可以帮助用户理解，但不要替他们判断"对错"。
 - 每个痛苦都是真实的。不要用"比惨"的方式来安慰。
 - 用户说"不想活了"的时候，不要说"你要想想你的父母"——这对有原生家庭创伤的人可能是二次伤害。你可以说："谢谢你愿意告诉我。你愿意多和我说说你现在有多难受吗？"
-- 永远尊重用户的节奏。他们不想说就不说。
-
-## 你的回应风格示例
-
-- "谢谢你愿意和我说这些。那一定很不容易。"
-- "你刚才说的那句话，我听了很难过。你当时一定很孤独吧。"
-- "不需要急着好起来。慢慢来，我在这里。"
-- "你刚才说的那种感觉，其实有个名字叫……"
-- "你现在感觉怎么样？愿意多和我说说吗？"
-- （不急于给建议，先接住情绪）`;
+- 永远尊重用户的节奏。他们不想说就不说。`;
 }
 
 // =======================================
-// 对话总结（精华提取）
+// 自动保存对话到 localStorage
+// =======================================
+
+const STORAGE_KEY = 'healing_chat_history';
+
+function saveConversation() {
+  if (conversationHistory.length < 2) return;
+
+  const now = new Date();
+  const record = {
+    id: Date.now(),
+    date: now.toLocaleString('zh-CN'),
+    timestamp: now.getTime(),
+    preview: conversationHistory[0]?.text?.substring(0, 50) + '…',
+    messages: JSON.parse(JSON.stringify(conversationHistory))
+  };
+
+  let saved = [];
+  try {
+    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e) { saved = []; }
+
+  if (saved.length > 0 && saved[0].id === record.id) {
+    saved[0] = record;
+  } else {
+    saved.unshift(record);
+  }
+
+  if (saved.length > 50) saved = saved.slice(0, 50);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+}
+
+// =======================================
+// 对话总结
 // =======================================
 
 async function generateSummary() {
@@ -387,8 +273,6 @@ async function generateSummary() {
       `${msg.role === 'user' ? '来访者' : '助手'}：${msg.text}`
     ).join('\n\n');
 
-    const url = DEEPSEEK_API_URL;
-
     const prompt = `你是一个心理咨询知识库的管理员。请分析以下对话，提取出"值得存入知识库的精华内容"。
 
 要求：
@@ -400,20 +284,14 @@ async function generateSummary() {
 对话记录：
 ${conversationText}`;
 
-    const resp = await fetch(url, {
+    const resp = await fetch('/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: DEEPSEEK_MODEL,
         messages: [
           { role: 'system', content: '你是一个温和的心理知识库管理员，擅长从对话中提取有价值的内容。' },
           { role: 'user', content: prompt }
-        ],
-        temperature: 0.4,
-        max_tokens: 1024
+        ]
       })
     });
 
@@ -496,23 +374,20 @@ function viewConversation(index) {
 
 function deleteConversation(index) {
   if (!confirm('确定要删除这条对话记录吗？')) return;
-
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
   saved.splice(index, 1);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-  showHistory();  // 刷新列表
+  showHistory();
 }
 
 // =======================================
-// 启动应用
+// 启动
 // =======================================
 
-// 点击弹窗外部关闭
 window.addEventListener('click', (e) => {
   if (e.target.classList.contains('modal')) {
     e.target.classList.add('hidden');
   }
 });
 
-// 启动
 initApp();
