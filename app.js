@@ -95,6 +95,43 @@ function saveSettings() {
 // 对话逻辑
 // =======================================
 
+// =======================================
+// 自动保存对话到 localStorage
+// =======================================
+
+const STORAGE_KEY = 'healing_chat_history';
+
+function saveConversation() {
+  if (conversationHistory.length < 2) return;  // 至少一问一答才保存
+
+  const now = new Date();
+  const record = {
+    id: Date.now(),
+    date: now.toLocaleString('zh-CN'),
+    timestamp: now.getTime(),
+    preview: conversationHistory[0]?.text?.substring(0, 50) + '…',
+    messages: JSON.parse(JSON.stringify(conversationHistory))
+  };
+
+  // 读取已有记录
+  let saved = [];
+  try {
+    saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e) { saved = []; }
+
+  // 如果最后一条记录的 ID 相同，覆盖（避免重复保存）
+  if (saved.length > 0 && saved[0].id === record.id) {
+    saved[0] = record;
+  } else {
+    saved.unshift(record);  // 新记录放最前面
+  }
+
+  // 最多保留 50 条对话
+  if (saved.length > 50) saved = saved.slice(0, 50);
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+}
+
 function addMessage(role, text) {
   const messagesEl = document.getElementById('messages');
   const msgDiv = document.createElement('div');
@@ -154,6 +191,7 @@ async function sendMessage() {
     const reply = await callDeepSeek(text);
     addMessage('assistant', reply);
     conversationHistory.push({ role: 'assistant', text: reply });
+    saveConversation();  // 自动保存对话
   } catch (err) {
     addMessage('assistant', `抱歉，我遇到了一点问题：${err.message}\n\n你可以检查一下 API 密钥是否正确，或者稍后再试。`);
   }
@@ -374,6 +412,67 @@ function copySummary() {
   }).catch(() => {
     alert('复制失败，请手动复制');
   });
+}
+
+// =======================================
+// 对话历史记录
+// =======================================
+
+function showHistory() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const modal = document.getElementById('history-modal');
+  const list = document.getElementById('history-list');
+
+  if (saved.length === 0) {
+    list.innerHTML = '<div class="history-empty">还没有保存的对话记录。<br>和助手聊完后，对话会自动保存到这里。</div>';
+  } else {
+    list.innerHTML = saved.map((conv, index) => `
+      <div class="history-item" onclick="viewConversation(${index})">
+        <div class="history-date">${conv.date}</div>
+        <div class="history-preview">${conv.preview}</div>
+        <div class="history-msg-count">${conv.messages.length} 条消息</div>
+      </div>
+    `).join('');
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeHistory() {
+  document.getElementById('history-modal').classList.add('hidden');
+  document.getElementById('history-detail').classList.add('hidden');
+}
+
+function viewConversation(index) {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  const conv = saved[index];
+  if (!conv) return;
+
+  const detail = document.getElementById('history-detail');
+  let html = `<div class="detail-header">
+    <span>${conv.date}</span>
+    <button onclick="deleteConversation(${index})" class="delete-btn">🗑️ 删除</button>
+  </div>`;
+
+  for (const msg of conv.messages) {
+    const role = msg.role === 'user' ? '💭 来访者' : '🤗 助手';
+    html += `<div class="detail-msg ${msg.role}">
+      <div class="detail-role">${role}</div>
+      <div class="detail-text">${msg.text}</div>
+    </div>`;
+  }
+
+  detail.innerHTML = html;
+  detail.classList.remove('hidden');
+}
+
+function deleteConversation(index) {
+  if (!confirm('确定要删除这条对话记录吗？')) return;
+
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  saved.splice(index, 1);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  showHistory();  // 刷新列表
 }
 
 // =======================================

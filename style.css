@@ -408,6 +408,100 @@ a {
   margin-top: 8px;
 }
 
+/* =================== 历史记录 =================== */
+.history-content {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+#history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.history-empty {
+  text-align: center;
+  color: #999;
+  padding: 40px 0;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.history-item {
+  padding: 12px 16px;
+  background: #f8f5f2;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.history-item:hover {
+  background: #f0e8e0;
+}
+
+.history-date {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.history-preview {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.history-msg-count {
+  font-size: 12px;
+  color: #b8a08e;
+}
+
+/* 对话详情 */
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #ece6e0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #999;
+}
+
+.delete-btn {
+  background: none;
+  border: 1px solid #e0d0c8;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #c47a7a;
+}
+
+.detail-msg {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0ece8;
+}
+
+.detail-msg:last-child {
+  border-bottom: none;
+}
+
+.detail-role {
+  font-size: 12px;
+  color: #b8a08e;
+  margin-bottom: 4px;
+}
+
+.detail-text {
+  font-size: 14px;
+  color: #444;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 /* =================== 滚动条 =================== */
 ::-webkit-scrollbar {
   width: 6px;

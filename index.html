@@ -47,6 +47,7 @@
       <div class="header-right">
         <button id="settings-btn" onclick="showSettings()" title="设置">⚙️</button>
         <button id="summary-btn" onclick="generateSummary()" title="总结对话">📝</button>
+        <button id="history-btn" onclick="showHistory()" title="对话历史">📋</button>
       </div>
     </div>
 
@@ -101,6 +102,16 @@
       </div>
       <div id="summary-loading" class="hidden">正在总结……</div>
       <button id="copy-summary-btn" onclick="copySummary()" class="hidden">复制总结</button>
+    </div>
+  </div>
+
+  <!-- 历史记录弹窗 -->
+  <div id="history-modal" class="modal hidden">
+    <div class="modal-content history-content">
+      <span class="close" onclick="closeHistory()">&times;</span>
+      <h2>📋 对话历史</h2>
+      <div id="history-list"></div>
+      <div id="history-detail" class="hidden"></div>
     </div>
   </div>
 
