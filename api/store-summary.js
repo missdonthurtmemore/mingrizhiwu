@@ -17,8 +17,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: '缺少 summary' });
     }
 
-    // 在 Vercel 环境变量中设置为 git_token，或用小写字母
-    const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.git_token || process.env.github_token;
+    // 从请求中获取 token（前端提供，不用 Vercel 环境变量）
+    // 或者从 Vercel 环境变量获取（如果用得上）
+    const GITHUB_TOKEN = req.body.token || process.env.GITHUB_TOKEN || process.env.git_token;
 
     const REPO = 'missdonthurtmemore/mingrizhiwu';
     const BRANCH = 'master';
