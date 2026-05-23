@@ -51,6 +51,34 @@ const SECTIONS = [
     dir: '3. Resources/原生家庭认知/自动总结',
     description: 'AI 助手在对话过程中自动生成的总结',
     excludeEmpty: true
+  },
+  {
+    id: 'anxiety-depression',
+    title: '焦虑与抑郁',
+    dir: '3. Resources/焦虑与抑郁',
+    description: '抑郁机制、焦虑应对、躯体化反应',
+    excludeEmpty: true
+  },
+  {
+    id: 'self-growth',
+    title: '自我成长',
+    dir: '3. Resources/自我成长',
+    description: '刮骨法、硬着头皮法、找到喜欢的事',
+    excludeEmpty: true
+  },
+  {
+    id: 'relationships',
+    title: '人际关系',
+    dir: '3. Resources/人际关系',
+    description: '亲密关系认知、沟通模式',
+    excludeEmpty: true
+  },
+  {
+    id: 'emotion-management',
+    title: '情绪管理',
+    dir: '3. Resources/情绪管理',
+    description: '情绪识别、调节方法、自我关怀',
+    excludeEmpty: true
   }
 ];
 
