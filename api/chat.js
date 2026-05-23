@@ -1,7 +1,9 @@
 /**
  * Vercel Serverless Function
- * 转发聊天请求到 DeepSeek API，API 密钥保存在 Vercel 环境变量中
+ * 转发聊天请求到 DeepSeek API（使用 https 模块，兼容所有 Node 版本）
  */
+
+const https = require('https');
 
 module.exports = async function handler(req, res) {
   // 只允许 POST 请求
@@ -10,7 +12,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { messages, signal } = req.body;
+    const { messages } = req.body;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: '缺少 messages 参数' });
@@ -21,24 +23,44 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: '服务器未配置 API 密钥' });
     }
 
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: messages,
-        temperature: 0.8,
-        max_tokens: 2048,
-        top_p: 0.95,
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3
-      })
+    const body = JSON.stringify({
+      model: 'deepseek-chat',
+      messages: messages,
+      temperature: 0.8,
+      max_tokens: 2048,
+      top_p: 0.95,
+      frequency_penalty: 0.3,
+      presence_penalty: 0.3
     });
 
-    const data = await response.json();
+    const data = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.deepseek.com',
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Length': Buffer.byteLength(body)
+        }
+      };
+
+      const apiReq = https.request(options, (apiRes) => {
+        let responseData = '';
+        apiRes.on('data', chunk => responseData += chunk);
+        apiRes.on('end', () => {
+          try {
+            resolve(JSON.parse(responseData));
+          } catch {
+            reject(new Error('DeepSeek API 返回了非 JSON 响应'));
+          }
+        });
+      });
+
+      apiReq.on('error', reject);
+      apiReq.write(body);
+      apiReq.end();
+    });
 
     if (data.error) {
       return res.status(401).json({ error: data.error.message || 'API 请求失败' });
