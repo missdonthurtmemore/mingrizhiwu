@@ -73,9 +73,15 @@
   <div id="history-modal" class="modal hidden">
     <div class="modal-content history-content">
       <span class="close" onclick="closeHistory()">&times;</span>
-      <h2>📋 对话历史</h2>
-      <div id="history-list"></div>
-      <div id="history-detail" class="hidden"></div>
+      <div class="history-tabs">
+        <button class="history-tab active" onclick="showHistoryTab('conversations')">📋 对话记录</button>
+        <button class="history-tab" onclick="showHistoryTab('summaries')">📝 自动总结</button>
+      </div>
+      <div id="history-conversations">
+        <div id="history-list"></div>
+        <div id="history-detail" class="hidden"></div>
+      </div>
+      <div id="history-summaries" class="hidden"></div>
     </div>
   </div>
 

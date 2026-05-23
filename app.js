@@ -86,6 +86,7 @@ async function sendMessage() {
     addMessage('assistant', reply);
     conversationHistory.push({ role: 'assistant', text: reply });
     saveConversation();
+    checkAutoSummary();
   } catch (err) {
     addMessage('assistant', `抱歉，我遇到了一点问题：${err.message}\n\n请稍后再试。`);
   }
@@ -252,7 +253,95 @@ function saveConversation() {
 }
 
 // =======================================
-// 对话总结
+// 自动总结（对话达到里程碑时后台触发）
+// =======================================
+
+const AUTO_SUMMARY_KEY = 'healing_chat_summaries';
+let lastAutoSummaryCount = 0;
+
+function getAutoSummaries() {
+  try {
+    return JSON.parse(localStorage.getItem(AUTO_SUMMARY_KEY) || '[]');
+  } catch(e) { return []; }
+}
+
+function saveAutoSummaries(summaries) {
+  localStorage.setItem(AUTO_SUMMARY_KEY, JSON.stringify(summaries));
+}
+
+async function checkAutoSummary() {
+  const userMsgCount = conversationHistory.filter(m => m.role === 'user').length;
+  const milestones = [10, 25, 50, 80, 120, 180];
+
+  let milestone = 0;
+  for (const m of milestones) {
+    if (userMsgCount >= m && m > lastAutoSummaryCount) {
+      milestone = m;
+    }
+  }
+
+  if (milestone > 0) {
+    lastAutoSummaryCount = milestone;
+    await autoGenerateSummary(milestone);
+  }
+}
+
+async function autoGenerateSummary(milestone) {
+  if (conversationHistory.length < 4) return;
+
+  const conversationText = conversationHistory.map(msg =>
+    `${msg.role === 'user' ? '来访者' : '助手'}：${msg.text}`
+  ).join('\n\n');
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: '你是一个心理咨询知识库的管理员。请从以下对话中提取关键主题和洞察，用于存入知识库。要求：\n1. 提取 2-4 个关键点\n2. 每个点用 1-2 句话概括\n3. 不要编造没有出现的内容\n4. 保持客观，不加主观评价'
+          },
+          { role: 'user', content: `这是对话的第 ${milestone} 轮左右的记录，请提取值得关注的要点：\n\n${conversationText}` }
+        ]
+      })
+    });
+
+    const data = await resp.json();
+    const summary = data.choices?.[0]?.message?.content;
+    if (!summary) return;
+
+    const now = new Date();
+    const record = {
+      id: Date.now(),
+      date: now.toLocaleString('zh-CN'),
+      timestamp: now.getTime(),
+      milestone: milestone,
+      messageCount: conversationHistory.filter(m => m.role === 'user').length,
+      summary: summary,
+      preview: summary.substring(0, 80) + '…'
+    };
+
+    const summaries = getAutoSummaries();
+    const lastSummary = summaries[0];
+    if (lastSummary && lastSummary.milestone === milestone &&
+        lastSummary.timestamp > Date.now() - 60000) {
+      return;
+    }
+
+    summaries.unshift(record);
+    if (summaries.length > 30) summaries.length = 30;
+    saveAutoSummaries(summaries);
+
+    console.log(`✅ 自动总结已保存（第 ${milestone} 轮）`);
+  } catch (err) {
+    console.error('自动总结失败:', err.message);
+  }
+}
+
+// =======================================
+// 手动对话总结
 // =======================================
 
 async function generateSummary() {
@@ -325,8 +414,13 @@ function copySummary() {
 // =======================================
 
 function showHistory() {
+  // 重置为对话记录标签页
+  document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.history-tab').classList.add('active');
+  document.getElementById('history-conversations').classList.remove('hidden');
+  document.getElementById('history-summaries').classList.add('hidden');
+
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  const modal = document.getElementById('history-modal');
   const list = document.getElementById('history-list');
 
   if (saved.length === 0) {
@@ -341,7 +435,83 @@ function showHistory() {
     `).join('');
   }
 
-  modal.classList.remove('hidden');
+  document.getElementById('history-modal').classList.remove('hidden');
+}
+
+function showHistoryTab(tab) {
+  document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('history-conversations').classList.add('hidden');
+  document.getElementById('history-summaries').classList.add('hidden');
+
+  if (tab === 'conversations') {
+    document.querySelectorAll('.history-tab')[0].classList.add('active');
+    document.getElementById('history-conversations').classList.remove('hidden');
+  } else {
+    document.querySelectorAll('.history-tab')[1].classList.add('active');
+    document.getElementById('history-summaries').classList.remove('hidden');
+    showAutoSummaries();
+  }
+}
+
+function showAutoSummaries() {
+  const summaries = getAutoSummaries();
+  const container = document.getElementById('history-summaries');
+
+  if (summaries.length === 0) {
+    container.innerHTML = '<div class="history-empty">还没有自动总结。<br>聊天达到 10 轮后会自动生成总结。</div>';
+    return;
+  }
+
+  let html = `<div style="text-align:right;margin-bottom:8px;">
+    <button class="copy-auto-summary-btn" onclick="exportAllSummaries()">📥 导出全部总结</button>
+  </div>`;
+
+  html += summaries.map(s => `
+    <div class="summary-item">
+      <div class="summary-meta">
+        🕐 ${s.date} · 第 ${s.milestone} 轮 · ${s.messageCount} 条消息
+      </div>
+      <div class="summary-text">${s.summary}</div>
+      <button class="copy-auto-summary-btn" onclick="copyAutoSummary(${s.id})">📋 复制到剪贴板</button>
+    </div>
+  `).join('');
+
+  container.innerHTML = html;
+}
+
+function exportAllSummaries() {
+  const summaries = getAutoSummaries();
+  if (summaries.length === 0) return;
+
+  let md = `# 📝 自动总结汇总\n\n> 由「原生家庭疗愈助手」自动生成\n> 导出时间：${new Date().toLocaleString('zh-CN')}\n\n---\n\n`;
+
+  for (const s of summaries) {
+    md += `## 第 ${s.milestone} 轮总结（${s.date}）\n\n`;
+    md += `对话轮数：${s.messageCount} 条消息\n\n`;
+    md += `${s.summary}\n\n`;
+    md += `---\n\n`;
+  }
+
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `自动总结_${new Date().toISOString().slice(0,10)}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function copyAutoSummary(id) {
+  const summaries = getAutoSummaries();
+  const summary = summaries.find(s => s.id === id);
+  if (!summary) return;
+
+  const text = `📝 自动总结（${summary.date} · 第 ${summary.milestone} 轮）\n\n${summary.summary}`;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✅ 已复制到剪贴板，可以粘贴到 Obsidian 知识库');
+  }).catch(() => {
+    alert('复制失败，请手动复制');
+  });
 }
 
 function closeHistory() {
