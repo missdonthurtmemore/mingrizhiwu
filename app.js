@@ -284,13 +284,15 @@ async function checkAutoSummary() {
   if (milestone > 0) {
     lastAutoSummaryCount = milestone;
     await autoGenerateSummary(milestone);
-    // 同步到本地 Obsidian 知识库
-    if (syncConnected) {
-      const summaries = getAutoSummaries();
-      const latest = summaries[0];
-      if (latest && latest.milestone === milestone) {
-        await syncToLocal(milestone, latest.summary);
-      }
+
+    // 同步总结
+    const summaries = getAutoSummaries();
+    const latest = summaries[0];
+    if (latest && latest.milestone === milestone) {
+      // 1. 云端同步（所有用户 → GitHub 仓库）
+      syncToCloud(milestone, latest.summary);
+      // 2. 本地同步（仅你 → Obsidian 知识库）
+      syncToLocal(milestone, latest.summary);
     }
   }
 }
@@ -350,7 +352,8 @@ async function autoGenerateSummary(milestone) {
 }
 
 // =======================================
-// 本地同步（自动写入 Obsidian 知识库）
+// 云端同步（所有用户的总结 → GitHub 仓库）
+// 本地同步（你的总结 → Obsidian 知识库）
 // =======================================
 
 const SYNC_SERVER = 'http://localhost:18888';
@@ -372,6 +375,32 @@ async function checkSyncServer() {
   }
 }
 
+/** 云端同步：对所有用户生效，总结存入 GitHub 仓库 */
+async function syncToCloud(milestone, summary) {
+  try {
+    const resp = await fetch('/api/store-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: new Date().toLocaleString('zh-CN'),
+        milestone: milestone,
+        summary: summary
+      })
+    });
+
+    if (resp.ok) {
+      const result = await resp.json();
+      console.log(`☁️ 云端同步成功: ${result.message}`);
+    } else {
+      console.log('⚠️ 云端同步返回错误:', resp.status);
+    }
+  } catch (err) {
+    // 静默失败，不影响用户聊天
+    console.log('⚠️ 云端同步失败:', err.message);
+  }
+}
+
+/** 本地同步：仅你的电脑上生效，总结写入 Obsidian */
 async function syncToLocal(milestone, summary) {
   if (!syncConnected) return;
 
@@ -400,7 +429,7 @@ async function syncToLocal(milestone, summary) {
       console.log(`✅ 已同步到本地知识库: ${result.note}`);
     }
   } catch (err) {
-    console.log('⚠️  本地同步失败（服务可能已停止）:', err.message);
+    console.log('⚠️  本地同步失败:', err.message);
     syncConnected = false;
     const el = document.getElementById('sync-status');
     if (el) { el.textContent = '⚪ 离线'; el.classList.remove('connected'); }
