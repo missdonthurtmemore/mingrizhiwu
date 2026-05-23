@@ -3,7 +3,7 @@
  * 转发聊天请求到 DeepSeek API，API 密钥保存在 Vercel 环境变量中
  */
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // 只允许 POST 请求
   if (req.method !== 'POST') {
     return res.status(405).json({ error: '仅支持 POST 请求' });
