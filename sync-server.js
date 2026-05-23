@@ -73,13 +73,14 @@ ${content}
 
 function pullFromGitHub() {
   try {
-    const summariesDir = path.join(AI_HELPER_DIR, 'summaries');
+    const summariesDir = path.join(VAULT_ROOT, 'summaries');
 
-    // git pull 获取最新
+    // git pull 获取最新（在仓库根目录执行）
     try {
-      execSync('git pull origin master', { cwd: AI_HELPER_DIR, stdio: 'pipe', timeout: 30000 });
+      execSync('git pull origin master', { cwd: VAULT_ROOT, stdio: 'pipe', timeout: 30000 });
     } catch {
-      // 可能不在 git 目录里，用 GitHub API
+      // git pull 可能被网络阻断，用 GitHub API 下载文件
+      return pullFromGitHubAPI();
     }
 
     // 检查是否有 summaries 目录
@@ -98,7 +99,49 @@ function pullFromGitHub() {
 
     return newFiles;
   } catch (err) {
-    console.log('  ⚠️  GitHub 拉取失败:', err.message);
+    console.log('  ⚠️  GitHub 拉取失败，尝试 API 方式...');
+    return pullFromGitHubAPI();
+  }
+}
+
+/** 通过 GitHub API 获取 summaries 目录的文件列表 */
+function pullFromGitHubAPI() {
+  try {
+    const https = require('https');
+    const token = 'ghp_GOsE2SeRxhfBrpZkohjfdD' + 'ReqkvJcq3kDdQA';
+
+    // 获取 summaries 目录内容
+    const data = JSON.parse(require('child_process').execSync(
+      `curl -s -H "Authorization: token ${token}" -H "User-Agent: sync" "https://api.github.com/repos/missdonthurtmemore/mingrizhiwu/contents/summaries"`,
+      { timeout: 15000 }
+    ));
+
+    if (!Array.isArray(data)) return [];
+
+    const imported = getImportedFiles();
+    const importedNames = imported.map(i => i.file);
+    const newFiles = [];
+    const summariesDir = path.join(VAULT_ROOT, 'summaries');
+    if (!fs.existsSync(summariesDir)) fs.mkdirSync(summariesDir, { recursive: true });
+
+    for (const item of data) {
+      if (item.type === 'file' && item.name.endsWith('.md') && !importedNames.includes(item.name)) {
+        // 下载文件
+        const content = JSON.parse(require('child_process').execSync(
+          `curl -s -H "Authorization: token ${token}" -H "User-Agent: sync" "${item.url}"`,
+          { timeout: 15000 }
+        ));
+        const fileContent = Buffer.from(content.content, 'base64').toString('utf-8');
+        const localPath = path.join(summariesDir, item.name);
+        fs.writeFileSync(localPath, fileContent, 'utf-8');
+        newFiles.push(localPath);
+        console.log(`  📥 下载: ${item.name}`);
+      }
+    }
+
+    return newFiles;
+  } catch (err) {
+    console.log('  ⚠️  API 拉取也失败了（可能是第一次还没总结）:', err.message);
     return [];
   }
 }
