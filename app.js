@@ -1,5 +1,5 @@
 // =======================================
-// 原生家庭疗愈助手 - 核心逻辑
+// 心灵疗愈助手 - 核心逻辑
 // =======================================
 
 let knowledgeData = null;        // 知识库数据
@@ -175,7 +175,7 @@ function buildSystemPrompt() {
   const userMsgCount = conversationHistory.filter(m => m.role === 'user').length;
   const phase = userMsgCount < 30 ? '第一阶段（建立连接）' : '第二阶段（深入分析）';
 
-  return `你是「原生家庭疗愈助手」——一个温柔、耐心、懂得倾听的对话伙伴。
+  return `你是「心灵疗愈助手」——一个温柔、耐心、懂得倾听的对话伙伴。
 
 你现在处于 **${phase}**（已对话 ${userMsgCount} 轮）。
 
@@ -580,7 +580,7 @@ function exportAllSummaries() {
   const summaries = getAutoSummaries();
   if (summaries.length === 0) return;
 
-  let md = `# 📝 自动总结汇总\n\n> 由「原生家庭疗愈助手」自动生成\n> 导出时间：${new Date().toLocaleString('zh-CN')}\n\n---\n\n`;
+  let md = `# 📝 自动总结汇总\n\n> 由「心灵疗愈助手」自动生成\n> 导出时间：${new Date().toLocaleString('zh-CN')}\n\n---\n\n`;
 
   for (const s of summaries) {
     md += `## 第 ${s.milestone} 轮总结（${s.date}）\n\n`;
