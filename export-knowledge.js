@@ -79,6 +79,13 @@ const SECTIONS = [
     dir: '3. Resources/情绪管理',
     description: '情绪识别、调节方法、自我关怀',
     excludeEmpty: true
+  },
+  {
+    id: 'nvc',
+    title: '非暴力沟通',
+    dir: '3. Resources/非暴力沟通',
+    description: '马歇尔·卢森堡《非暴力沟通》读书笔记与NVC框架',
+    excludeEmpty: true
   }
 ];
 

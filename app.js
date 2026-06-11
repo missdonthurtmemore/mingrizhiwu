@@ -167,7 +167,7 @@ function buildSystemPrompt() {
       knowledgeSummary += `\n--- ${section.title} ---\n`;
       for (const note of section.notes) {
         knowledgeSummary += `\n《${note.title}》\n`;
-        knowledgeSummary += note.content.substring(0, 600) + '\n……\n';
+        knowledgeSummary += note.content + '\n\n';
       }
     }
   }
